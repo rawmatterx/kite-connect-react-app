@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "vercel-build.sh", "use": "@vercel/static-build", "config": { "distDir": "client/dist" } },
+    { "src": "api/login.js", "use": "@vercel/node" },
+    { "src": "api/kite-redirect.js", "use": "@vercel/node" },
+    { "src": "api/profile.js", "use": "@vercel/node" },
+    { "src": "api/holdings.js", "use": "@vercel/node" },
+    { "src": "api/margins.js", "use": "@vercel/node" },
+    { "src": "api/logout.js", "use": "@vercel/node" }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/login",
+      "destination": "/api/login.js"
+    },
+    {
+      "source": "/api/kite-redirect",
+      "destination": "/api/kite-redirect.js"
+    },
+    {
+      "source": "/api/profile",
+      "destination": "/api/profile.js"
+    },
+    {
+      "source": "/api/holdings",
+      "destination": "/api/holdings.js"
+    },
+    {
+      "source": "/api/margins/:segment?",
+      "destination": "/api/margins.js"
+    },
+    {
+      "source": "/api/logout",
+      "destination": "/api/logout.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/client/dist/$1"
+    }
+  ]
+}
