@@ -10,14 +10,30 @@ const skipEdgeDB = process.env.NODE_ENV === 'development' && process.env.ENABLE_
 
 if (!skipEdgeDB && process.env.EDGEDB_INSTANCE && process.env.EDGEDB_SECRET_KEY) {
   try {
-    client = edgedb.createClient({
+    // Create EdgeDB client with additional SSL/TLS configuration options
+    const clientOptions = {
       instanceName: process.env.EDGEDB_INSTANCE,
-      secretKey: process.env.EDGEDB_SECRET_KEY
-    });
+      secretKey: process.env.EDGEDB_SECRET_KEY,
+      // Add TLS options to handle SSL issues in Vercel environment
+      tlsSecurity: process.env.EDGEDB_TLS_SECURITY || 'strict',
+      // Add connection retry options
+      connectionParams: {
+        waitUntilAvailable: 30000, // 30 seconds
+      }
+    };
+    
+    // If EDGEDB_DSN is provided, use it instead
+    if (process.env.EDGEDB_DSN) {
+      client = edgedb.createClient(process.env.EDGEDB_DSN);
+    } else {
+      client = edgedb.createClient(clientOptions);
+    }
+    
     isEdgeDBConfigured = true;
-    console.log('EdgeDB client created');
+    console.log('EdgeDB client created with SSL/TLS configuration');
   } catch (error) {
     console.warn('Failed to create EdgeDB client:', error.message);
+    isEdgeDBConfigured = false;
   }
 } else if (skipEdgeDB) {
   console.log('EdgeDB skipped in local development (set ENABLE_EDGEDB=true to enable)');

@@ -261,31 +261,55 @@ async function saveRequestToken(token, kiteUserId) {
     return null;
   }
   
-  try {
-    const query = `
-      INSERT RequestToken {
-        token := <str>$token,
-        kite_user_id := <str>$kite_user_id,
-        expires_at := datetime_current() + <duration>'30 minutes'
-      }
-      UNLESS CONFLICT ON .token
-      ELSE (
-        UPDATE RequestToken SET {
+  // Retry logic for transient SSL errors
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const query = `
+        INSERT RequestToken {
+          token := <str>$token,
           kite_user_id := <str>$kite_user_id,
           expires_at := datetime_current() + <duration>'30 minutes'
         }
-      )
-    `;
-    
-    const result = await client.querySingle(query, {
-      token: token,
-      kite_user_id: kiteUserId
-    });
-    
-    return result;
-  } catch (error) {
-    console.error('Error saving request token to EdgeDB:', error.message);
-    return null;
+        UNLESS CONFLICT ON .token
+        ELSE (
+          UPDATE RequestToken SET {
+            kite_user_id := <str>$kite_user_id,
+            expires_at := datetime_current() + <duration>'30 minutes'
+          }
+        )
+      `;
+      
+      const result = await client.querySingle(query, {
+        token: token,
+        kite_user_id: kiteUserId
+      });
+      
+      if (attempt > 1) {
+        console.log(`Successfully saved request token to EdgeDB after ${attempt} attempts`);
+      }
+      
+      return result;
+    } catch (error) {
+      const isSSLError = error.message && error.message.includes('SSL') || error.message.includes('ssl3_read_bytes') || error.message.includes('TLS');
+      
+      if (attempt === maxRetries) {
+        console.error('Error saving request token to EdgeDB after', maxRetries, 'attempts:', error.message);
+        return null;
+      }
+      
+      if (isSSLError) {
+        console.warn(`SSL error on attempt ${attempt}, retrying in ${retryDelay}ms:`, error.message);
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+      } else {
+        // For non-SSL errors, don't retry
+        console.error('Non-SSL error saving request token to EdgeDB:', error.message);
+        return null;
+      }
+    }
   }
 }
 
