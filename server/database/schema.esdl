@@ -38,4 +38,18 @@ module default {
     }
     property expires_at -> datetime;
   }
+
+  type RequestToken {
+    required property token -> str {
+      constraint exclusive;
+    }
+    required property kite_user_id -> str;
+    required property created_at -> datetime {
+      default := datetime_current();
+    }
+    property expires_at -> datetime;
+    property used -> bool {
+      default := false;
+    }
+  }
 }

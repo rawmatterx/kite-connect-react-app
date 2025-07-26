@@ -10,6 +10,7 @@ const {
   saveSession,
   getSession,
   deleteSession,
+  saveRequestToken,
 } = require("../utils/userData")
 
 // Database connection
@@ -90,6 +91,10 @@ const kiteCallback = async (req, res) => {
       return res.status(400).send("Login failed. Invalid status or missing request_token.")
     }
 
+    // Save request token to EdgeDB for security and traceability
+    // We'll save it with a placeholder user_id for now, will update after we get the actual user_id
+    await saveRequestToken(request_token, "pending")
+
     // Generate checksum for token exchange
     const checksum = generateChecksum(API_KEY, request_token, API_SECRET)
 
@@ -124,6 +129,9 @@ const kiteCallback = async (req, res) => {
 
     // Save user data to EdgeDB
     await saveUser(userData.user_id, userData.access_token, userData.public_token, userData.refresh_token || null)
+
+    // Update the request token in EdgeDB with the actual user ID
+    await saveRequestToken(request_token, userData.user_id)
 
     // Save session to EdgeDB
     if (req.sessionID) {

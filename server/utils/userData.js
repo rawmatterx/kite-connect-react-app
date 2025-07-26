@@ -253,6 +253,42 @@ async function deleteSession(sessionId) {
   }
 }
 
+// Save request token to EdgeDB
+async function saveRequestToken(token, kiteUserId) {
+  // If EdgeDB is not configured, return early
+  if (!isEdgeDBConfigured || !client) {
+    console.log('EdgeDB not configured, skipping saveRequestToken');
+    return null;
+  }
+  
+  try {
+    const query = `
+      INSERT RequestToken {
+        token := <str>$token,
+        kite_user_id := <str>$kite_user_id,
+        expires_at := datetime_current() + <duration>'30 minutes'
+      }
+      UNLESS CONFLICT ON .token
+      ELSE (
+        UPDATE RequestToken SET {
+          kite_user_id := <str>$kite_user_id,
+          expires_at := datetime_current() + <duration>'30 minutes'
+        }
+      )
+    `;
+    
+    const result = await client.querySingle(query, {
+      token: token,
+      kite_user_id: kiteUserId
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error saving request token to EdgeDB:', error.message);
+    return null;
+  }
+}
+
 module.exports = {
   saveUser,
   getUser,
@@ -260,5 +296,6 @@ module.exports = {
   getHoldings,
   saveSession,
   getSession,
-  deleteSession
+  deleteSession,
+  saveRequestToken
 };
